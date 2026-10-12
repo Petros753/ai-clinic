@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.routers import auth, users
 
 app = FastAPI(title="AI Clinic API", docs_url="/api/docs", openapi_url="/api/openapi.json")
 api = APIRouter(prefix="/api")
@@ -17,3 +18,5 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 app.include_router(api)
+app.include_router(auth.router)
+app.include_router(users.router)
