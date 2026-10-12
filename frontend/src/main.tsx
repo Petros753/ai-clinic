@@ -1,10 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import Shell from './shell/Shell.tsx'
+import { AuthProvider } from './shell/auth.tsx'
+import AuthGate from './shell/Shell.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Shell />
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   </StrictMode>,
 )

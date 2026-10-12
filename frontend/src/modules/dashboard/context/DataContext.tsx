@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { ROLE_LABEL, useUser } from '../../../shell/auth'
 import { api } from '../api/client'
 import type {
   AppNotification,
@@ -54,6 +55,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [alarm, setAlarm] = useState(false)
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
+  const user = useUser()
 
   useEffect(() => {
     let alive = true
@@ -93,8 +95,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const securityEvents = alarm
       ? raw.securityEvents.map((g, i) => (i === 0 ? { ...g, items: [ALARM_EVENT, ...g.items] } : g))
       : raw.securityEvents
+    // Приветствие и карточка в сайдбаре — для того, кто вошёл
+    const director = {
+      name: user.name,
+      role: user.is_director ? raw.overview.director.role : ROLE_LABEL[user.role],
+      initials: user.name.trim().charAt(0).toUpperCase(),
+    }
     return {
       ...raw,
+      overview: { ...raw.overview, director },
       rooms,
       notifications,
       securityEvents,
@@ -104,7 +113,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       unread: notifications.filter((n) => !n.read).length,
       alarmsCount: alarm ? 1 : 0,
     }
-  }, [raw, alarm, readIds, markAllRead])
+  }, [raw, alarm, readIds, markAllRead, user])
 
   if (error) {
     return (
