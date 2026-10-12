@@ -1,0 +1,6 @@
+# Контекст сборки web — весь репозиторий; берём только нужное.
+**/node_modules
+**/dist
+.git
+backend/api
+backend/.env
