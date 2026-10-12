@@ -6,7 +6,7 @@ import { Stepper } from '../components/ui/extra'
 import { useToast } from '../components/ui/Toast'
 import { useData } from '../context/DataContext'
 import { useUi } from '../context/UiContext'
-import { suppliers } from '../data/mock'
+import { NO_SUPPLIER, suppliers } from '../data/catalog'
 import { daysLeft, fmtDays, fmtRub, level, orderLine } from '../lib/stock'
 
 /**
@@ -30,9 +30,9 @@ export function OrdersPage() {
     })
   }, [toOrder])
 
-  const groups = useMemo(() => suppliers
+  const groups = useMemo(() => [...suppliers, NO_SUPPLIER]
     .map((s) => {
-      const lines = toOrder.filter((i) => i.supplierId === s.id).map((i) => ({ item: i, qty: qty[i.id] ?? orderLine(i).qty }))
+      const lines = toOrder.filter((i) => (i.supplierId ?? '') === s.id).map((i) => ({ item: i, qty: qty[i.id] ?? orderLine(i).qty }))
       const active = lines.filter((l) => !off[l.item.id])
       return { s, lines, sum: active.reduce((a, l) => a + l.qty * l.item.price, 0), count: active.length }
     })

@@ -45,7 +45,8 @@ export interface Item {
   /** Оптимальный остаток — до него дозаказываем */
   max: number
   price: number // ₽ за единицу учёта
-  supplierId: string
+  /** Поставщик не обязателен */
+  supplierId: string | null
   location: string
   /** Ближайший срок годности партии на складе, ISO-дата */
   expiry: string | null
@@ -64,6 +65,10 @@ export interface Movement {
   room?: string
   note?: string
   source: MovementSource
+  /** Ключ операции (idempotency_key): строки одной операции и повтор из очереди */
+  opKey?: string
+  /** Операция в очереди браузера — ещё не дошла до сервера */
+  pending?: boolean
 }
 
 export interface Staff {

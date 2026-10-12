@@ -5,7 +5,7 @@
 
 Маршруты раздела удобно собирать так:
 
-    router = module_router("sklad")                      # чтение: нужен view
+    router = module_router("sklad", prefix="/api/stock")      # чтение: нужен view
     @router.post("/movements", dependencies=[edit("sklad")])  # запись: нужен edit
 """
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -56,6 +56,8 @@ def edit(module: Module):
     return Depends(require_module(module, "edit"))
 
 
-def module_router(module: Module) -> APIRouter:
-    """Роутер раздела /api/<module>: каждый маршрут требует хотя бы просмотра."""
-    return APIRouter(prefix=f"/api/{module}", tags=[module], dependencies=[Depends(require_module(module, "view"))])
+def module_router(module: Module, prefix: str | None = None) -> APIRouter:
+    """Роутер раздела (по умолчанию /api/<module>): каждый маршрут требует хотя бы просмотра."""
+    return APIRouter(
+        prefix=prefix or f"/api/{module}", tags=[module], dependencies=[Depends(require_module(module, "view"))]
+    )

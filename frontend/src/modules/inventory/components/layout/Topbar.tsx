@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, CheckCheck, ScanBarcode, Search } from 'lucide-react'
+import { Bell, CheckCheck, CloudOff, ScanBarcode, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../../context/DataContext'
 import { useUi } from '../../context/UiContext'
@@ -25,7 +25,7 @@ function useOutside(open: boolean, close: () => void) {
 }
 
 export function Topbar() {
-  const { clinic, unread, lowCount, outCount } = useData()
+  const { clinic, unread, lowCount, outCount, queued } = useData()
   const { navigate } = useUi()
   const now = useClock()
   const [open, setOpen] = useState(false)
@@ -54,6 +54,18 @@ export function Topbar() {
           >
             <span className={clsx('h-1.5 w-1.5 rounded-full', outCount ? 'bg-crit' : 'bg-warn')} />
             {outCount ? `Закончилось: ${outCount} · мало: ${lowCount}` : `Заканчивается: ${lowCount}`}
+          </button>
+        )}
+
+        {queued > 0 && (
+          <button
+            type="button"
+            onClick={() => navigate('movements')}
+            title="Операции сохранены в браузере и уйдут на сервер, когда появится связь"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-warn/30 bg-warn/10 px-3 py-1 text-xs font-medium text-warn"
+          >
+            <CloudOff size={13} />
+            <span className="hidden sm:inline">Нет связи · в очереди:</span> {queued}
           </button>
         )}
 

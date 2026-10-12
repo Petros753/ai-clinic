@@ -139,7 +139,7 @@ function InventoryShell({ active }: { active: boolean }) {
 export default function InventoryApp({ active }: { active: boolean }) {
   return (
     <ToastProvider>
-      <DataProvider>
+      <DataProvider active={active}>
         <InventoryShell active={active} />
       </DataProvider>
     </ToastProvider>

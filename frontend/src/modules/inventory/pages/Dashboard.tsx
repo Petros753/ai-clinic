@@ -6,7 +6,7 @@ import { Button, Card, CardHeader, PageHeader, StatusDot } from '../components/u
 import { Kpi } from '../components/ui/extra'
 import { useData } from '../context/DataContext'
 import { useUi } from '../context/UiContext'
-import { categories } from '../data/mock'
+import { categories } from '../data/catalog'
 import { dailyConsumption, periodSum } from '../lib/analytics'
 import {
   daysLeft, expiryDays, EXPIRY_WARN_DAYS, fmtDays, fmtRub, fmtRubShort, fmtWhen, level, LEVEL, MOVE, SOURCE, stockValue, supplierOf,

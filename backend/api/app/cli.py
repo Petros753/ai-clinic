@@ -2,6 +2,7 @@
 
     docker compose exec api python -m app.cli create-director artem "Артём"
     docker compose exec api python -m app.cli set-password artem
+    docker compose exec api python -m app.cli seed-sklad-demo
 """
 import argparse
 import getpass
@@ -33,7 +34,18 @@ def main() -> None:
     p.add_argument("name")
     p = sub.add_parser("set-password", help="сменить пароль, если забыли")
     p.add_argument("login")
+    sub.add_parser("seed-sklad-demo", help="загрузить демо-номенклатуру склада в пустую базу")
     args = parser.parse_args()
+
+    if args.cmd == "seed-sklad-demo":
+        from app.stock_demo import seed
+
+        with SessionLocal() as db:
+            director = db.scalar(select(User).where(User.role == "director").order_by(User.id))
+            if not director:
+                sys.exit("Сначала создайте директора: create-director")
+            print(f"Загружено позиций: {seed(db, director)}")
+        return
 
     login = args.login.strip().lower()
     with SessionLocal() as db:
