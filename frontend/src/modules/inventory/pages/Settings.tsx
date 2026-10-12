@@ -5,8 +5,8 @@ import type { ReactNode } from 'react'
 import { Button, Card, CardHeader, PageHeader } from '../components/ui'
 import { Field, Input } from '../components/ui/extra'
 import { useToast } from '../components/ui/Toast'
-import { isDemo } from '../api/client'
-import { staff } from '../data/mock'
+import { DEMO as isDemo } from '../../../shell/auth'
+import { staff } from '../data/catalog'
 import { EXPIRY_WARN_DAYS } from '../lib/stock'
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {

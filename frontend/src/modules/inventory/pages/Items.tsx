@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { Button, Card, Empty, PageHeader, Segmented, StatusPill } from '../components/ui'
 import { useData } from '../context/DataContext'
 import { useUi } from '../context/UiContext'
-import { categories } from '../data/mock'
+import { categories } from '../data/catalog'
 import {
   categoryOf, daysLeft, expiryDays, EXPIRY_WARN_DAYS, fmtDays, fmtRub, isExpiring, level, LEVEL, supplierOf,
 } from '../lib/stock'
@@ -26,7 +26,7 @@ export function downloadCsv(name: string, rows: (string | number)[][]) {
 }
 
 export function ItemsPage() {
-  const { items, lowCount, outCount, expiringCount } = useData()
+  const { items, lowCount, outCount, expiringCount, canEdit } = useData()
   const { openItem, newItem } = useUi()
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<string>('all')
@@ -66,7 +66,7 @@ export function ItemsPage() {
         right={
           <div className="flex gap-2">
             <Button variant="ghost" icon={Download} onClick={exportCsv}>CSV</Button>
-            <Button variant="primary" icon={PackagePlus} onClick={() => newItem()}>Новая позиция</Button>
+            {canEdit && <Button variant="primary" icon={PackagePlus} onClick={() => newItem()}>Новая позиция</Button>}
           </div>
         }
       />

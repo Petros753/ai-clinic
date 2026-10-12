@@ -9,7 +9,8 @@ import { Barcode, Select, Stepper } from '../components/ui/extra'
 import { useToast } from '../components/ui/Toast'
 import { useData } from '../context/DataContext'
 import { useUi } from '../context/UiContext'
-import { rooms, staff } from '../data/mock'
+import { DEMO, useUser } from '../../../shell/auth'
+import { rooms, staff } from '../data/catalog'
 import { emulateScan } from '../hooks/useBarcodeScanner'
 import { categoryOf, fmtRub, fmtWhen, level, LEVEL, MOVE, SOURCE } from '../lib/stock'
 import type { Item, MovementType } from '../types'
@@ -46,13 +47,15 @@ function beep(ok: boolean) {
 }
 
 export function ScanPage() {
-  const { items, movements, byBarcode, move } = useData()
+  const { items, movements, byBarcode, move, canEdit } = useData()
+  const me = useUser()
   const { incoming, newItem, openItem } = useUi()
   const toast = useToast()
 
   const [mode, setMode] = useState<Mode>('out')
   const [room, setRoom] = useState<string>(rooms[0])
-  const [user, setUser] = useState('Анна К.')
+  const [user, setUser] = useState(() => (DEMO ? 'Анна К.' : me.name))
+  const [busy, setBusy] = useState(false)
   const [reason, setReason] = useState(WRITEOFF_REASONS[0])
   const [lines, setLines] = useState<Line[]>([])
   const [last, setLast] = useState<{ item: Item | null; code: string; n: number } | null>(null)
@@ -91,22 +94,29 @@ export function ScanPage() {
   const over = outgoing && lines.some((l) => l.qty > l.item.stock)
   const total = lines.reduce((s, l) => s + l.qty * l.item.price, 0)
 
-  const commit = () => {
-    if (!lines.length || over) return
-    const alerts: string[] = []
-    for (const l of lines) {
-      const r = move({
-        itemId: l.item.id, type: mode, qty: l.qty, user, source: 'scanner',
+  // Весь список — одна операция: сервер проводит её целиком или никак
+  const commit = async () => {
+    if (!lines.length || over || busy || !canEdit) return
+    setBusy(true)
+    try {
+      const r = await move({
+        type: mode, lines: lines.map((l) => ({ itemId: l.item.id, qty: l.qty })), user, source: 'scanner',
         room: mode === 'out' ? room : undefined,
         note: mode === 'writeoff' ? reason : mode === 'in' ? 'Приёмка по скану' : undefined,
       })
-      if (r?.alert) alerts.push(l.item.name)
+      const units = lines.reduce((s, l) => s + l.qty, 0)
+      if (r.queued) toast(`Нет связи с сервером — ${MOVE[mode].label.toLowerCase()} сохранён и проведётся автоматически (${lines.length} поз., ${units} ед.)`)
+      else toast(`${MOVE[mode].label} проведён: ${lines.length} поз., ${units} ед.`)
+      const alerts = r.alerts.map((a) => a.item.name)
+      if (alerts.length) setTimeout(() => toast(`Уведомление в Telegram: заканчивается ${alerts.length === 1 ? alerts[0] : `${alerts.length} позиции`}`), 450)
+      setLines([])
+      setLast(null)
+    } catch (e) {
+      // список не очищаем — можно поправить и провести снова
+      toast(`Не проведено: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
     }
-    const units = lines.reduce((s, l) => s + l.qty, 0)
-    toast(`${MOVE[mode].label} проведён: ${lines.length} поз., ${units} ед.`)
-    if (alerts.length) setTimeout(() => toast(`Уведомление в Telegram: заканчивается ${alerts.length === 1 ? alerts[0] : `${alerts.length} позиции`}`), 450)
-    setLines([])
-    setLast(null)
   }
 
   const demoScan = () => {
@@ -216,11 +226,13 @@ export function ScanPage() {
                 </form>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-              <span className="text-[11px] uppercase tracking-wider text-fg-3">Демо без сканера:</span>
-              <Button variant="subtle" icon={Wand2} onClick={demoScan} className="px-2.5 py-1.5 text-xs">Симулировать скан</Button>
-              <Button variant="subtle" icon={CircleHelp} onClick={demoUnknown} className="px-2.5 py-1.5 text-xs">Неизвестный товар</Button>
-            </div>
+            {DEMO && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <span className="text-[11px] uppercase tracking-wider text-fg-3">Демо без сканера:</span>
+                <Button variant="subtle" icon={Wand2} onClick={demoScan} className="px-2.5 py-1.5 text-xs">Симулировать скан</Button>
+                <Button variant="subtle" icon={CircleHelp} onClick={demoUnknown} className="px-2.5 py-1.5 text-xs">Неизвестный товар</Button>
+              </div>
+            )}
           </Card>
 
           {/* результат последнего скана: неизвестный код */}
@@ -232,7 +244,7 @@ export function ScanPage() {
                   <div className="text-sm font-medium text-fg">Штрихкод не найден в номенклатуре</div>
                   <div className="font-mono text-xs text-fg-2">{last.code}</div>
                 </div>
-                <Button variant="primary" icon={PackagePlus} onClick={() => newItem(last.code)}>Добавить позицию</Button>
+                {canEdit && <Button variant="primary" icon={PackagePlus} onClick={() => newItem(last.code)}>Добавить позицию</Button>}
                 <button type="button" onClick={() => setLast(null)} className="grid h-9 w-9 place-items-center rounded-lg text-fg-3 hover:bg-white/5" aria-label="Скрыть"><X size={16} /></button>
               </motion.div>
             )}
@@ -289,9 +301,13 @@ export function ScanPage() {
               <div className="text-xs text-fg-3">
                 {lines.length > 0 && <>Сумма: <span className="num text-sm font-medium text-fg">{fmtRub(total)}</span></>}
               </div>
-              <Button variant="primary" onClick={commit} disabled={!lines.length || over} className="min-w-[180px]">
-                Провести {m.label.toLowerCase()}{lines.length ? ` · ${lines.reduce((s, l) => s + l.qty, 0)} ед.` : ''}
-              </Button>
+              {canEdit ? (
+                <Button variant="primary" onClick={commit} disabled={!lines.length || over || busy} className="min-w-[180px]">
+                  {busy ? 'Проводим…' : <>Провести {m.label.toLowerCase()}{lines.length ? ` · ${lines.reduce((s, l) => s + l.qty, 0)} ед.` : ''}</>}
+                </Button>
+              ) : (
+                <span className="text-xs text-fg-3">У вас доступ к складу только на просмотр</span>
+              )}
             </div>
           </Card>
         </div>

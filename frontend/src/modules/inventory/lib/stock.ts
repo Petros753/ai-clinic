@@ -1,6 +1,6 @@
 import { CircleAlert, Info, Siren, Sparkles, TriangleAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { categories, suppliers } from '../data/mock'
+import { categories, NO_SUPPLIER, suppliers } from '../data/catalog'
 import type { Item, Movement, MovementSource, MovementType, OrderLine, Severity, StockLevel } from '../types'
 
 export const LEVEL: Record<StockLevel, { label: string; color: string; text: string; bg: string; ring: string }> = {
@@ -66,8 +66,9 @@ export function orderLine(i: Item): OrderLine {
   return { item: i, qty, sum: qty * i.price }
 }
 
-export const categoryOf = (i: Item) => categories.find((c) => c.id === i.categoryId) ?? categories[0]
-export const supplierOf = (i: Item) => suppliers.find((s) => s.id === i.supplierId) ?? suppliers[0]
+export const categoryOf = (i: Item) =>
+  categories.find((c) => c.id === i.categoryId) ?? categories[0] ?? { id: i.categoryId, name: 'Без категории', color: '#6d7b8e' }
+export const supplierOf = (i: Item) => suppliers.find((s) => s.id === i.supplierId) ?? NO_SUPPLIER
 
 export const stockValue = (items: Item[]) => items.reduce((s, i) => s + i.stock * i.price, 0)
 

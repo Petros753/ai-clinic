@@ -4,8 +4,9 @@ import { Bell, Camera, ChevronLeft, Minus, Search, ShoppingCart, UserCheck } fro
 import { useEffect, useRef, useState } from 'react'
 import { Card, CardHeader, PageHeader } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
+import { DEMO } from '../../../shell/auth'
 import { useData } from '../context/DataContext'
-import { rooms } from '../data/mock'
+import { rooms } from '../data/catalog'
 import { daysLeft, fmtDays, fmtRub, level, orderLine, supplierOf } from '../lib/stock'
 import type { Item } from '../types'
 
@@ -124,13 +125,18 @@ export function BotPage() {
     }, 900)
   }
 
-  const issue = (id: string, qty: number) => {
+  const issue = async (id: string, qty: number) => {
     const room = rooms[0]
-    const r = move({ itemId: id, type: 'out', qty, room, user: 'Ирина М.', source: 'bot' })
-    if (!r) return
-    reply(`➖ Выдать ${qty}`, () => ({
-      text: `✅ Выдано: ${r.item.name} × ${qty} → ${room}\nОстаток: ${r.item.stock} ${r.item.unit}. Запись в журнале.`,
-    }))
+    try {
+      // в демо — от имени ассистента, на сервере — от того, кто вошёл
+      const r = await move({ lines: [{ itemId: id, qty }], type: 'out', room, user: DEMO ? 'Ирина М.' : undefined, source: 'bot' })
+      const it = r.items[0]
+      reply(`➖ Выдать ${qty}`, () => ({
+        text: `✅ Выдано: ${it.name} × ${qty} → ${room}\nОстаток: ${it.stock} ${it.unit}. ${r.queued ? 'Нет связи — проведётся, когда сеть вернётся.' : 'Запись в журнале.'}`,
+      }))
+    } catch (e) {
+      toast(`Не проведено: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   const keyboard = [

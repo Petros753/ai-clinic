@@ -1,4 +1,4 @@
-import { categories } from '../data/mock'
+import { categories } from '../data/catalog'
 import type { Item, Movement } from '../types'
 import { dayKey } from './stock'
 

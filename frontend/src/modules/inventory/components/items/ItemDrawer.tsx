@@ -4,7 +4,7 @@ import { CalendarClock, MapPin, Minus, Pencil, Plus, Timer, Truck, X } from 'luc
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useData } from '../../context/DataContext'
-import { categories, rooms, suppliers } from '../../data/mock'
+import { categories, rooms, suppliers } from '../../data/catalog'
 import {
   categoryOf, dayKey, daysLeft, expiryDays, EXPIRY_WARN_DAYS, fmtDate, fmtDays, fmtRub, fmtWhen, LEVEL, level, MOVE, SOURCE, supplierOf,
 } from '../../lib/stock'
@@ -61,7 +61,8 @@ function DrawerHead({ title, sub, onClose, right }: { title: string; sub?: strin
 }
 
 function ItemView({ id, onClose }: { id: string; onClose: () => void }) {
-  const { byId, movements, move } = useData()
+  const { byId, movements, move, canEdit } = useData()
+  const [busy, setBusy] = useState(false)
   const toast = useToast()
   const [edit, setEdit] = useState(false)
   const [qty, setQty] = useState(1)
@@ -96,12 +97,19 @@ function ItemView({ id, onClose }: { id: string; onClose: () => void }) {
   const maxBar = Math.max(1, ...bars.map((b) => b.v))
   const scale = Math.max(it.max, it.stock, 1)
 
-  const act = (type: 'in' | 'out') => {
-    const r = move({ itemId: it.id, type, qty, room: type === 'out' ? room : undefined, source: 'manual', user: 'Заказчик' })
-    if (!r) return
-    toast(`${type === 'in' ? 'Приход' : 'Расход'}: ${it.name} · ${qty} ${it.unit}`)
-    if (r.alert) setTimeout(() => toast(r.alert === 'out' ? 'Позиция закончилась — уведомление в Telegram' : 'Ниже минимума — уведомление в Telegram'), 400)
-    setQty(1)
+  const act = async (type: 'in' | 'out') => {
+    setBusy(true)
+    try {
+      const r = await move({ lines: [{ itemId: it.id, qty }], type, room: type === 'out' ? room : undefined, source: 'manual' })
+      toast(`${type === 'in' ? 'Приход' : 'Расход'}: ${it.name} · ${qty} ${it.unit}${r.queued ? ' — нет связи, проведётся автоматически' : ''}`)
+      const a = r.alerts[0]?.level
+      if (a) setTimeout(() => toast(a === 'out' ? 'Позиция закончилась — уведомление в Telegram' : 'Ниже минимума — уведомление в Telegram'), 400)
+      setQty(1)
+    } catch (e) {
+      toast(`Не проведено: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -110,7 +118,7 @@ function ItemView({ id, onClose }: { id: string; onClose: () => void }) {
         title={it.name}
         sub={`${it.brand} · ${it.sku} · ${it.pack} в ${it.unit}`}
         onClose={onClose}
-        right={<button type="button" onClick={() => setEdit(true)} className="grid h-9 w-9 place-items-center rounded-lg text-fg-2 hover:bg-white/5" aria-label="Редактировать"><Pencil size={16} /></button>}
+        right={canEdit && <button type="button" onClick={() => setEdit(true)} className="grid h-9 w-9 place-items-center rounded-lg text-fg-2 hover:bg-white/5" aria-label="Редактировать"><Pencil size={16} /></button>}
       />
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
@@ -156,8 +164,8 @@ function ItemView({ id, onClose }: { id: string; onClose: () => void }) {
             </Select>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="ghost" icon={Plus} onClick={() => act('in')} className="h-11 border-ok/30 text-ok hover:border-ok/50">Приход</Button>
-            <Button variant="primary" icon={Minus} onClick={() => act('out')} disabled={it.stock <= 0} className="h-11">Выдать</Button>
+            <Button variant="ghost" icon={Plus} onClick={() => act('in')} disabled={busy || !canEdit} className="h-11 border-ok/30 text-ok hover:border-ok/50">Приход</Button>
+            <Button variant="primary" icon={Minus} onClick={() => act('out')} disabled={busy || !canEdit || it.stock < qty} className="h-11">Выдать</Button>
           </div>
         </div>
 
@@ -230,18 +238,25 @@ function ItemForm({ item, barcode, onClose }: { item?: Item; barcode?: string; o
     () =>
       item ?? {
         id: `i${Date.now()}`, barcode: barcode ?? '', sku: '', name: '', brand: '', categoryId: categories[0].id,
-        unit: 'уп', pack: '', stock: 0, min: 1, max: 5, price: 0, supplierId: suppliers[0].id, location: '', expiry: null, dailyUse: 0,
+        unit: 'уп', pack: '', stock: 0, min: 1, max: 5, price: 0, supplierId: suppliers[0]?.id ?? null, location: '', expiry: null, dailyUse: 0,
       },
   )
   const set = <K extends keyof Item>(k: K, v: Item[K]) => setF((x) => ({ ...x, [k]: v }))
   const dup = f.barcode && items.some((i) => i.barcode === f.barcode && i.id !== f.id)
   const valid = f.name.trim() && f.barcode.trim() && !dup && f.max >= f.min
 
-  const submit = () => {
-    if (!valid) return
-    saveItem({ ...f, name: f.name.trim(), sku: f.sku.trim() || `NEW-${f.barcode.slice(-5)}` })
-    toast(isNew ? `Добавлено в номенклатуру: ${f.name}` : 'Изменения сохранены')
-    onClose()
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    if (!valid || busy) return
+    setBusy(true)
+    try {
+      await saveItem({ ...f, name: f.name.trim(), sku: f.sku.trim() || `NEW-${f.barcode.slice(-5)}` }, isNew)
+      toast(isNew ? `Добавлено в номенклатуру: ${f.name}` : 'Изменения сохранены')
+      onClose()
+    } catch (e) {
+      toast(`Не сохранено: ${e instanceof Error ? e.message : String(e)}`)
+      setBusy(false)
+    }
   }
 
   return (
@@ -263,7 +278,8 @@ function ItemForm({ item, barcode, onClose }: { item?: Item; barcode?: string; o
             </Select>
           </Field>
           <Field label="Поставщик">
-            <Select value={f.supplierId} onChange={(e) => set('supplierId', e.target.value)}>
+            <Select value={f.supplierId ?? ''} onChange={(e) => set('supplierId', e.target.value || null)}>
+              <option value="">Не указан</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
           </Field>
@@ -293,7 +309,7 @@ function ItemForm({ item, barcode, onClose }: { item?: Item; barcode?: string; o
         )}
         <div className="flex gap-2 pt-2">
           <Button variant="ghost" onClick={onClose} className="flex-1">Отмена</Button>
-          <Button variant="primary" type="submit" disabled={!valid} className="flex-1">{isNew ? 'Добавить' : 'Сохранить'}</Button>
+          <Button variant="primary" type="submit" disabled={!valid || busy} className="flex-1">{isNew ? 'Добавить' : 'Сохранить'}</Button>
         </div>
       </form>
     </>

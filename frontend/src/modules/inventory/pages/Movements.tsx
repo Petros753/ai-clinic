@@ -5,7 +5,7 @@ import { Button, Card, Empty, PageHeader, Segmented } from '../components/ui'
 import { Select } from '../components/ui/extra'
 import { useData } from '../context/DataContext'
 import { useUi } from '../context/UiContext'
-import { rooms } from '../data/mock'
+import { rooms } from '../data/catalog'
 import { fmtRub, MOVE, SOURCE } from '../lib/stock'
 import type { MovementType } from '../types'
 import { downloadCsv } from './Items'
@@ -124,7 +124,7 @@ export function MovementsPage() {
                         </div>
                         <div className="hidden shrink-0 text-right sm:block">
                           <div className="text-xs text-fg-2">{m.user}</div>
-                          <div className="text-[11px] text-fg-3">{SOURCE[m.source]}</div>
+                          <div className={clsx('text-[11px]', m.pending ? 'text-warn' : 'text-fg-3')}>{m.pending ? 'в очереди · не отправлено' : SOURCE[m.source]}</div>
                         </div>
                         <span className="num hidden w-24 shrink-0 text-right text-xs text-fg-2 md:block">{fmtRub(m.qty * (it?.price ?? 0))}</span>
                       </button>
